@@ -232,7 +232,7 @@ function M.get_status_async(fpath, callback)
       return true
     end
 
-    debounce.debounce("sfm_git_" .. git_root, 1000, function()
+    debounce.debounce("sfm-git-" .. git_root, 1000, function()
       local staged_job = Job:new {
         command = "git",
         args = { "-C", git_root, "diff", "--staged", "--name-status", git_base, "--" },

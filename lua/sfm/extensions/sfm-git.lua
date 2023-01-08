@@ -1,30 +1,39 @@
 local event = require "sfm.event"
 local config = require "sfm.extensions.sfm-git.config"
 local status = require "sfm.extensions.sfm-git.status"
+local api = require "sfm.api"
 
-local M = {}
+local M = {
+  git_status = {},
+}
 
-function M.test()
-  status.get_status_async(
-    "/Users/dinhhuy258/.local/share/nvim/lazy/sfm-git.nvim/lua/sfm/extensions/",
-    function(git_status)
-      vim.notify(vim.inspect(git_status))
-    end
-  )
+local function git_status_renderer(entry)
+  return {
+    text = M.git_status[entry.path],
+    highlight = nil,
+  }
+end
+
+local function on_git_status_done(git_status)
+  M.git_status = git_status
+
+  if api.explorer.is_open then
+    api.explorer.refresh()
+  end
 end
 
 function M.setup(sfm_explorer, opts)
   config.setup(opts)
-  sfm_explorer:subscribe(event.ExplorerOpen, function(payload)
-    local bufnr = payload["bufnr"]
-    local options = {
-      noremap = true,
-      silent = true,
-      expr = false,
-    }
+  local root_entry = sfm_explorer:get_root_entry()
+  status.get_status_async(root_entry.path, on_git_status_done)
 
-    vim.api.nvim_buf_set_keymap(bufnr, "n", "t", "<CMD>lua require('sfm.extensions.sfm-git').test()<CR>", options)
+  sfm_explorer:subscribe(event.FolderOpened, function(payload)
+    local path = payload["path"]
+
+    status.get_status_async(path, on_git_status_done)
   end)
+
+  sfm_explorer:register_renderer("sfm-git", 100, git_status_renderer)
 end
 
 return M
