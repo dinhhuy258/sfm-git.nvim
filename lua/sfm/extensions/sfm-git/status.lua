@@ -142,7 +142,6 @@ function M.get_status_async(fpath, callback)
 
     local parse_git_status = vim.schedule_wrap(function()
       parse_git_status_batch(context, function()
-        vim.notify(vim.inspect(context.git_status))
         callback(context.git_status)
       end) -- job_complete_callback
     end)

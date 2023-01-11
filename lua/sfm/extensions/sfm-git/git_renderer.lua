@@ -14,7 +14,7 @@ local icons = {
 
 local git_status = {
   staged = { text = icons.staged, highlight = "SFMGitStaged" },
-  unstaged = { text = icons.unstaged, highlight = "SFMGitDirty" },
+  unstaged = { text = icons.unstaged, highlight = "SFMGitUnstaged" },
   renamed = { text = icons.renamed, highlight = "SFMGitRenamed" },
   deleted = { text = icons.deleted, highlight = "SFMGitDeleted" },
   unmerged = { text = icons.unmerged, highlight = "SFMGitMerge" },
