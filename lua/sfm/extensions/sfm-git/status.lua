@@ -56,25 +56,17 @@ end
 
 local function parse_git_status_line(context, line)
   context.lines_parsed = context.lines_parsed + 1
-  if type(line) ~= "string" then
+  if type(line) ~= "string" or #line < 4  then
     return
   end
-  if #line < 4 then
-    return
-  end
+
   local git_root = context.git_root
-  local git_status = context.git_status
+  local status = line:sub(1, 2)
+  local relative_path = line:sub(4)
 
-  local line_parts = vim.split(line, "	")
-  if #line_parts < 2 then
-    return
-  end
-  local status = line_parts[1]
-  local relative_path = line_parts[2]
-
-  -- rename output is `R000 from/filename to/filename`
   if status:match "^R" then
-    relative_path = line_parts[3]
+    -- rename output is `from/filename -> to/filename`
+    relative_path = string.match(relative_path, "->%s+(.+)")
   end
 
   -- remove any " due to whitespace in the path
@@ -85,24 +77,24 @@ local function parse_git_status_line(context, line)
   end
 
   local absolute_path = path.join { git_root, relative_path }
-  git_status[absolute_path] = status
+  context.git_status[absolute_path] = status
 
   -- now bubble this status up to the parent directories
-  local parts = path.split(absolute_path)
-  table.remove(parts) -- pop the last part so we don't override the file's status
-  reduce(parts, "", function(acc, part)
-    local fpath = acc .. path_separator .. part
-    if is_windows then
-      fpath = fpath:gsub("^" .. path_separator, "")
-    end
-    -- local path_status = git_status[fpath]
-    local file_status = status
-    git_status[fpath] = file_status
-    return fpath
-  end)
+  -- local parts = path.split(absolute_path)
+  -- table.remove(parts) -- pop the last part so we don't override the file's status
+  -- reduce(parts, "", function(acc, part)
+  --   local fpath = acc .. path_separator .. part
+  --   if is_windows then
+  --     fpath = fpath:gsub("^" .. path_separator, "")
+  --   end
+  --   -- local path_status = git_status[fpath]
+  --   local file_status = status
+  --   git_status[fpath] = file_status
+  --   return fpath
+  -- end)
 end
 
-local function parse_lines_batch(context, job_complete_callback)
+local function parse_git_status_batch(context, job_complete_callback)
   local i, batch_size = 0, BATCH_SIZE
 
   if context.lines_total == nil then
@@ -130,7 +122,7 @@ local function parse_lines_batch(context, job_complete_callback)
   else
     -- add small delay so other work can happen
     vim.defer_fn(function()
-      parse_lines_batch(context, job_complete_callback)
+      parse_git_status_batch(context, job_complete_callback)
     end, BATCH_DELAY)
   end
 end
@@ -141,8 +133,6 @@ function M.get_status_async(fpath, callback)
       return
     end
 
-    local git_base = "HEAD"
-
     local context = {
       git_root = git_root,
       git_status = {},
@@ -150,79 +140,14 @@ function M.get_status_async(fpath, callback)
       lines_parsed = 0,
     }
 
-    local parse_lines = vim.schedule_wrap(function()
-      parse_lines_batch(context, function()
+    local parse_git_status = vim.schedule_wrap(function()
+      parse_git_status_batch(context, function()
+        vim.notify(vim.inspect(context.git_status))
         callback(context.git_status)
       end) -- job_complete_callback
     end)
 
-    local should_process = function(err, _, job, err_msg)
-      if vim.v.dying > 0 or vim.v.exiting ~= vim.NIL then
-        job:shutdown()
-        return false
-      end
-      if err and err > 0 then
-        print(err_msg)
-
-        return false
-      end
-      return true
-    end
-
     debounce.debounce("sfm-git-" .. git_root, 1000, function()
-      local staged_job = Job:new {
-        command = "git",
-        args = { "-C", git_root, "diff", "--staged", "--name-status", git_base, "--" },
-        enable_recording = false,
-        maximium_results = MAX_LINES,
-        on_stdout = vim.schedule_wrap(function(err, line, job)
-          if should_process(err, line, job, "status_async staged error:") then
-            table.insert(context.lines, line)
-          end
-        end),
-        on_stderr = function() -- err, line
-          print "[sfm-git] Failed to retrieve git staged"
-        end,
-      }
-
-      local unstaged_job = Job:new {
-        command = "git",
-        args = { "-C", git_root, "diff", "--name-status" },
-        enable_recording = false,
-        maximium_results = MAX_LINES,
-        on_stdout = vim.schedule_wrap(function(err, line, job)
-          if should_process(err, line, job, "status_async unstaged error:") then
-            if line then
-              line = " " .. line
-            end
-
-            table.insert(context.lines, line)
-          end
-        end),
-        on_stderr = function(_, _) -- err, line
-          print "[sfm-git] Failed to retrieve git unstaged"
-        end,
-      }
-
-      local untracked_job = Job:new {
-        command = "git",
-        args = { "-C", git_root, "ls-files", "--exclude-standard", "--others" },
-        enable_recording = false,
-        maximium_results = MAX_LINES,
-        on_stdout = vim.schedule_wrap(function(err, line, job)
-          if should_process(err, line, job, "status_async untracked error:") then
-            if line then
-              line = "?	" .. line
-            end
-
-            table.insert(context.lines, line)
-          end
-        end),
-        on_stderr = function(_, _) -- err, line
-          print "[sfm-git] Failed to retrieve git untracked"
-        end,
-      }
-
       Job:new({
         command = "git",
         args = {
@@ -235,13 +160,37 @@ function M.get_status_async(fpath, callback)
         enabled_recording = true,
         on_exit = function(self, _, _)
           local result = self:result()
-          if result[1] == "no" then
-            unstaged_job:after(parse_lines)
-            Job.chain(staged_job, unstaged_job)
-          else
-            untracked_job:after(parse_lines)
-            Job.chain(staged_job, unstaged_job, untracked_job)
-          end
+          local list_untracked = result[1] ~= "no"
+          local untracked = list_untracked and "-u" or nil
+          local ignored = list_untracked and "--ignored=matching" or "--ignored=no"
+
+          local status_job = Job:new {
+            command = "git",
+            args = {
+              "-C",
+              git_root,
+              "--no-optional-locks",
+              "status",
+              "--porcelain=v1",
+              ignored,
+              untracked,
+            },
+            enable_recording = true,
+            maximium_results = MAX_LINES,
+            on_exit = function(job, job_code, _)
+              if job_code ~= 0 then
+                return
+              end
+
+              context.lines = job:result()
+            end,
+            on_stderr = function() -- err, line
+              print "[sfm-git] Failed to retrieve git status"
+            end,
+          }
+
+          status_job:after(parse_git_status)
+          Job.chain(status_job)
         end,
       }):start()
     end)
