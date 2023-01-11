@@ -27,8 +27,10 @@ function M.setup(sfm_explorer, opts)
     end,
   })
 
-  local root = api.entry.root()
-  status.get_status_async(root.path, on_git_status_done)
+  sfm_explorer:subscribe(event.ExplorerOpened, function()
+    local root = api.entry.root()
+    status.get_status_async(root.path, on_git_status_done)
+  end)
 
   sfm_explorer:subscribe(event.FolderOpened, function(payload)
     local path = payload["path"]
@@ -36,7 +38,8 @@ function M.setup(sfm_explorer, opts)
     status.get_status_async(path, on_git_status_done)
   end)
 
-  sfm_explorer:register_renderer("sfm-git", 100, git_renderer.git_status_renderer)
+  -- indent(10), indicator(20), icon(30), selection(40), git_status(45), name(50)
+  sfm_explorer:register_renderer("sfm-git", 45, git_renderer.git_status_renderer)
 end
 
 return M
