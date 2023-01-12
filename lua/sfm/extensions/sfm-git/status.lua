@@ -3,8 +3,8 @@ local debounce = require "sfm.utils.debounce"
 local path = require "sfm.utils.path"
 
 local is_windows = vim.fn.has "win32" == 1 or vim.fn.has "win32unix" == 1
-local path_separator = package.config:sub(1, 1)
 
+local GIT_STATUS_IGNORE = "!!"
 local MAX_LINES = 100000
 local BATCH_SIZE = 1000
 local BATCH_DELAY = 10
@@ -13,13 +13,6 @@ local M = {
   git_roots = {},
   git_roots_cache = {},
 }
-
-local function reduce(list, memo, func)
-  for _, i in ipairs(list) do
-    memo = func(memo, i)
-  end
-  return memo
-end
 
 local function get_git_root_async(fpath, callback)
   if M.git_roots_cache[fpath] ~= nil then
@@ -54,13 +47,13 @@ local function get_git_root_async(fpath, callback)
   }):start()
 end
 
-local function parse_git_status_line(context, line)
-  context.lines_parsed = context.lines_parsed + 1
-  if type(line) ~= "string" or #line < 4  then
+local function parse_git_status_line(ctx, line)
+  ctx.lines_parsed = ctx.lines_parsed + 1
+  if type(line) ~= "string" or #line < 4 then
     return
   end
 
-  local git_root = context.git_root
+  local git_root = ctx.git_root
   local status = line:sub(1, 2)
   local relative_path = line:sub(4)
 
@@ -77,52 +70,40 @@ local function parse_git_status_line(context, line)
   end
 
   local absolute_path = path.join { git_root, relative_path }
-  context.git_status[absolute_path] = status
-
-  -- now bubble this status up to the parent directories
-  -- local parts = path.split(absolute_path)
-  -- table.remove(parts) -- pop the last part so we don't override the file's status
-  -- reduce(parts, "", function(acc, part)
-  --   local fpath = acc .. path_separator .. part
-  --   if is_windows then
-  --     fpath = fpath:gsub("^" .. path_separator, "")
-  --   end
-  --   -- local path_status = git_status[fpath]
-  --   local file_status = status
-  --   git_status[fpath] = file_status
-  --   return fpath
-  -- end)
+  ctx.git_statuses.direct[absolute_path] = ctx.git_statuses.direct[absolute_path] or {}
+  table.insert(ctx.git_statuses.direct[absolute_path], status)
 end
 
-local function parse_git_status_batch(context, job_complete_callback)
+local function parse_git_statuses_batch(ctx, job_complete_callback)
   local i, batch_size = 0, BATCH_SIZE
 
-  if context.lines_total == nil then
+  if ctx.lines_total == nil then
     -- first time through, get the total number of lines
-    context.lines_total = math.min(MAX_LINES, #context.lines)
-    context.lines_parsed = 0
-    if context.lines_total == 0 then
+    ctx.lines_total = math.min(MAX_LINES, #ctx.lines)
+    ctx.lines_parsed = 0
+    if ctx.lines_total == 0 then
       if type(job_complete_callback) == "function" then
         job_complete_callback()
       end
       return
     end
   end
-  batch_size = math.min(BATCH_SIZE, context.lines_total - context.lines_parsed)
+
+  batch_size = math.min(BATCH_SIZE, ctx.lines_total - ctx.lines_parsed)
 
   while i < batch_size do
     i = i + 1
-    parse_git_status_line(context, context.lines[context.lines_parsed + 1])
+    parse_git_status_line(ctx, ctx.lines[ctx.lines_parsed + 1])
   end
 
-  if context.lines_parsed >= context.lines_total then
+  if ctx.lines_parsed >= ctx.lines_total then
     if type(job_complete_callback) == "function" then
       job_complete_callback()
     end
   else
     -- add small delay so other work can happen
     vim.defer_fn(function()
-      parse_git_status_batch(context, job_complete_callback)
+      parse_git_statuses_batch(ctx, job_complete_callback)
     end, BATCH_DELAY)
   end
 end
@@ -133,16 +114,19 @@ function M.get_status_async(fpath, callback)
       return
     end
 
-    local context = {
+    local ctx = {
       git_root = git_root,
-      git_status = {},
+      git_statuses = {
+        direct = {},
+        indirect = {},
+      },
       lines = {},
       lines_parsed = 0,
     }
 
-    local parse_git_status = vim.schedule_wrap(function()
-      parse_git_status_batch(context, function()
-        callback(context.git_status)
+    local parse_git_statuses = vim.schedule_wrap(function()
+      parse_git_statuses_batch(ctx, function()
+        callback(ctx.git_statuses)
       end) -- job_complete_callback
     end)
 
@@ -181,14 +165,14 @@ function M.get_status_async(fpath, callback)
                 return
               end
 
-              context.lines = job:result()
+              ctx.lines = job:result()
             end,
             on_stderr = function() -- err, line
               print "[sfm-git] Failed to retrieve git status"
             end,
           }
 
-          status_job:after(parse_git_status)
+          status_job:after(parse_git_statuses)
           Job.chain(status_job)
         end,
       }):start()

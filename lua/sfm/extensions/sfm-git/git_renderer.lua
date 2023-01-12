@@ -55,19 +55,13 @@ local git_status_to_icons = {
 }
 
 function M.git_status_renderer(entry)
-  local status = context.git_status[entry.path]
-  if status ~= nil and git_status_to_icons[status] ~= nil then
-    return git_status_to_icons[status]
+  local renderers = {}
+  local statuses = context.get_statuses(entry.path)
+  for _, status in ipairs(statuses) do
+    table.move(git_status_to_icons[status], 1, #git_status_to_icons[status], 1, renderers)
   end
 
-  if status ~= nil and git_status_to_icons[status] == nil then
-    -- print(status)
-  end
-
-  return {
-    text = nil,
-    highlight = nil,
-  }
+  return renderers
 end
 
 return M

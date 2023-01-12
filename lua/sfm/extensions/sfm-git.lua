@@ -9,8 +9,8 @@ local api = require "sfm.api"
 
 local M = {}
 
-local function on_git_status_done(git_status)
-  context.git_status = git_status
+local function on_git_status_done(git_statuses)
+  context.git_statuses = git_statuses
 
   if api.explorer.is_open then
     api.explorer.refresh()
