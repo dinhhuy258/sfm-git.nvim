@@ -57,7 +57,7 @@ local git_status_to_icons = {
 function M.git_status_renderer(entry)
   local renderers = {}
   local statuses = context.get_statuses(entry.path)
-  for _, status in ipairs(statuses) do
+  for status, _ in pairs(statuses) do
     table.move(git_status_to_icons[status], 1, #git_status_to_icons[status], 1, renderers)
   end
 

@@ -3,6 +3,7 @@ local debounce = require "sfm.utils.debounce"
 local path = require "sfm.utils.path"
 
 local is_windows = vim.fn.has "win32" == 1 or vim.fn.has "win32unix" == 1
+local path_separator = package.config:sub(1, 1)
 
 local GIT_STATUS_IGNORE = "!!"
 local MAX_LINES = 100000
@@ -13,6 +14,13 @@ local M = {
   git_roots = {},
   git_roots_cache = {},
 }
+
+local function reduce(list, memo, func)
+  for _, i in ipairs(list) do
+    memo = func(memo, i)
+  end
+  return memo
+end
 
 local function get_git_root_async(fpath, callback)
   if M.git_roots_cache[fpath] ~= nil then
@@ -47,13 +55,11 @@ local function get_git_root_async(fpath, callback)
   }):start()
 end
 
-local function parse_git_status_line(ctx, line)
-  ctx.lines_parsed = ctx.lines_parsed + 1
+local function parse_git_status_line(git_root, line)
   if type(line) ~= "string" or #line < 4 then
-    return
+    return nil
   end
 
-  local git_root = ctx.git_root
   local status = line:sub(1, 2)
   local relative_path = line:sub(4)
 
@@ -70,8 +76,11 @@ local function parse_git_status_line(ctx, line)
   end
 
   local absolute_path = path.join { git_root, relative_path }
-  ctx.git_statuses.direct[absolute_path] = ctx.git_statuses.direct[absolute_path] or {}
-  table.insert(ctx.git_statuses.direct[absolute_path], status)
+
+  return {
+    path = absolute_path,
+    status = status,
+  }
 end
 
 local function parse_git_statuses_batch(ctx, job_complete_callback)
@@ -85,6 +94,7 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
       if type(job_complete_callback) == "function" then
         job_complete_callback()
       end
+
       return
     end
   end
@@ -93,7 +103,30 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
 
   while i < batch_size do
     i = i + 1
-    parse_git_status_line(ctx, ctx.lines[ctx.lines_parsed + 1])
+    local state = parse_git_status_line(ctx.git_root, ctx.lines[ctx.lines_parsed + 1])
+    ctx.lines_parsed = ctx.lines_parsed + 1
+
+    if state ~= nil then
+      ctx.git_statuses.direct[state.path] = ctx.git_statuses.direct[state.path] or {}
+      ctx.git_statuses.direct[state.path][state.status] = true
+
+      if state.status ~= GIT_STATUS_IGNORE then
+        -- parse indirect
+        local parts = path.split(state.path)
+        table.remove(parts) -- pop the last part so we don't override the file's status
+        reduce(parts, "", function(acc, part)
+          local fpath = acc .. path_separator .. part
+          if is_windows then
+            fpath = fpath:gsub("^" .. path_separator, "")
+          end
+
+          ctx.git_statuses.indirect[fpath] = ctx.git_statuses.indirect[fpath] or {}
+          ctx.git_statuses.indirect[fpath][state.status] = true
+
+          return fpath
+        end)
+      end
+    end
   end
 
   if ctx.lines_parsed >= ctx.lines_total then
