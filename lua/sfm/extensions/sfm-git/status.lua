@@ -1,18 +1,26 @@
 local Job = require "plenary.job"
 local debounce = require "sfm.utils.debounce"
 local path = require "sfm.utils.path"
+local watcher = require "sfm.extensions.sfm-git.watcher"
+local utils = require "sfm.extensions.sfm-git.utils"
 
-local is_windows = vim.fn.has "win32" == 1 or vim.fn.has "win32unix" == 1
 local path_separator = package.config:sub(1, 1)
 
 local GIT_STATUS_IGNORE = "!!"
 local MAX_LINES = 100000
 local BATCH_SIZE = 1000
 local BATCH_DELAY = 10
+local WATCHED_FILES = {
+  "FETCH_HEAD", -- remote ref
+  "HEAD", -- local ref
+  "HEAD.lock", -- HEAD will not always be updated e.g. revert
+  "config", -- user config
+  "index", -- staging area
+}
 
 local M = {
-  git_roots = {},
   git_roots_cache = {},
+  watchers = {},
 }
 
 local function reduce(list, memo, func)
@@ -44,12 +52,11 @@ local function get_git_root_async(fpath, callback)
 
       local git_root = self:result()[1]
 
-      if is_windows then
+      if utils.is_windows then
         git_root = git_root:gsub("/", "\\")
       end
 
       M.git_roots_cache[fpath] = git_root
-      M.git_roots[git_root] = true
       callback(git_root)
     end,
   }):start()
@@ -71,7 +78,7 @@ local function parse_git_status_line(git_root, line)
   -- remove any " due to whitespace in the path
   relative_path = relative_path:gsub('^"', ""):gsub('$"', "")
 
-  if is_windows then
+  if utils.is_windows then
     relative_path = relative_path:gsub("/", "\\")
   end
 
@@ -116,7 +123,7 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
         table.remove(parts) -- pop the last part so we don't override the file's status
         reduce(parts, "", function(acc, part)
           local fpath = acc .. path_separator .. part
-          if is_windows then
+          if utils.is_windows then
             fpath = fpath:gsub("^" .. path_separator, "")
           end
 
@@ -145,6 +152,20 @@ function M.get_status_async(fpath, callback)
   get_git_root_async(fpath, function(git_root)
     if git_root == nil then
       return
+    end
+
+    if M.watchers[git_root] == nil then
+      M.watchers[git_root] = watcher.Watcher:new(path.join { git_root, ".git" }, WATCHED_FILES, function(w)
+        if w.destroyed then
+          return
+        end
+
+        debounce.debounce("sfm-git-watcher" .. git_root, 1000, function()
+          M.get_status_async(w.git_root, callback)
+        end)
+      end, {
+        git_root = git_root,
+      })
     end
 
     local ctx = {

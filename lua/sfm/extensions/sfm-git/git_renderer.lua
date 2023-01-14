@@ -61,6 +61,10 @@ function M.git_status_renderer(entry)
     table.move(git_status_to_icons[status], 1, #git_status_to_icons[status], 1, renderers)
   end
 
+  if vim.tbl_count(renderers) ~= 0 then
+    table.insert(renderers, { text = " ", highlight = nil })
+  end
+
   return renderers
 end
 
