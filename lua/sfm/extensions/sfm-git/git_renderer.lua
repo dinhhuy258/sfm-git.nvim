@@ -1,4 +1,4 @@
-local context = require "sfm.extensions.sfm-git.context"
+local ctx = require "sfm.extensions.sfm-git.context"
 
 local M = {}
 
@@ -56,7 +56,7 @@ local git_status_to_icons = {
 
 function M.git_status_renderer(entry)
   local renderers = {}
-  local statuses = context.get_statuses(entry.path)
+  local statuses = ctx.get_statuses(entry.path)
   for status, _ in pairs(statuses) do
     table.move(git_status_to_icons[status], 1, #git_status_to_icons[status], 1, renderers)
   end

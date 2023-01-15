@@ -19,8 +19,9 @@ local WATCHED_FILES = {
 }
 
 local M = {
-  git_roots_cache = {},
-  watchers = {},
+  _callback = function(_, _) end,
+  _git_roots_cache = {},
+  _watchers = {},
 }
 
 local function reduce(list, memo, func)
@@ -31,8 +32,8 @@ local function reduce(list, memo, func)
 end
 
 local function get_git_root_async(fpath, callback)
-  if M.git_roots_cache[fpath] ~= nil then
-    callback(M.git_roots_cache[fpath])
+  if M._git_roots_cache[fpath] ~= nil then
+    callback(M._git_roots_cache[fpath])
 
     return
   end
@@ -56,7 +57,7 @@ local function get_git_root_async(fpath, callback)
         git_root = git_root:gsub("/", "\\")
       end
 
-      M.git_roots_cache[fpath] = git_root
+      M._git_roots_cache[fpath] = git_root
       callback(git_root)
     end,
   }):start()
@@ -148,20 +149,20 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
   end
 end
 
-function M.get_status_async(fpath, callback)
+function M.get_status_async(fpath)
   get_git_root_async(fpath, function(git_root)
     if git_root == nil then
       return
     end
 
-    if M.watchers[git_root] == nil then
-      M.watchers[git_root] = watcher.Watcher:new(path.join { git_root, ".git" }, WATCHED_FILES, function(w)
+    if M._watchers[git_root] == nil then
+      M._watchers[git_root] = watcher.Watcher:new(path.join { git_root, ".git" }, WATCHED_FILES, function(w)
         if w.destroyed then
           return
         end
 
         debounce.debounce("sfm-git-watcher" .. git_root, 1000, function()
-          M.get_status_async(w.git_root, callback)
+          M.get_status_async(w.git_root)
         end)
       end, {
         git_root = git_root,
@@ -180,7 +181,7 @@ function M.get_status_async(fpath, callback)
 
     local parse_git_statuses = vim.schedule_wrap(function()
       parse_git_statuses_batch(ctx, function()
-        callback(ctx.git_statuses)
+        M._callback(ctx.git_root, ctx.git_statuses)
       end) -- job_complete_callback
     end)
 
@@ -232,6 +233,10 @@ function M.get_status_async(fpath, callback)
       }):start()
     end)
   end)
+end
+
+function M.setup(callback)
+  M._callback = callback
 end
 
 return M
