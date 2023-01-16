@@ -21,4 +21,11 @@ function M.array_shallow_clone(array)
   return to
 end
 
+function M.reduce(list, memo, func)
+  for _, i in ipairs(list) do
+    memo = func(memo, i)
+  end
+  return memo
+end
+
 return M

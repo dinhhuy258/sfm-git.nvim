@@ -24,13 +24,6 @@ local M = {
   _watchers = {},
 }
 
-local function reduce(list, memo, func)
-  for _, i in ipairs(list) do
-    memo = func(memo, i)
-  end
-  return memo
-end
-
 local function get_git_root_async(fpath, callback)
   if M._git_roots_cache[fpath] ~= nil then
     callback(M._git_roots_cache[fpath])
@@ -58,6 +51,8 @@ local function get_git_root_async(fpath, callback)
       end
 
       M._git_roots_cache[fpath] = git_root
+      M._git_roots_cache[git_root] = git_root
+
       callback(git_root)
     end,
   }):start()
@@ -122,7 +117,7 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
         -- parse indirect
         local parts = path.split(state.path)
         table.remove(parts) -- pop the last part so we don't override the file's status
-        reduce(parts, "", function(acc, part)
+        utils.reduce(parts, "", function(acc, part)
           local fpath = acc .. path_separator .. part
           if utils.is_windows then
             fpath = fpath:gsub("^" .. path_separator, "")

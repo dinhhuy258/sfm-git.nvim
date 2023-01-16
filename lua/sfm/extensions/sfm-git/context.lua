@@ -13,19 +13,25 @@ end
 ---@param path string
 ---@return table[string]
 function M.get_statuses(path)
+  local statuses = {}
+
   for git_root, _ in pairs(M._statuses) do
-    local status = M._statuses[git_root].direct[path]
-    if status ~= nil then
-      return status
+    local git_statuses = M._statuses[git_root].direct[path]
+    if git_statuses ~= nil then
+      for status, _ in pairs(git_statuses) do
+        statuses[status] = true
+      end
     end
 
-    status = M._statuses[git_root].indirect[path]
-    if status ~= nil then
-      return status
+    git_statuses = M._statuses[git_root].indirect[path]
+    if git_statuses ~= nil then
+      for status, _ in pairs(git_statuses) do
+        statuses[status] = true
+      end
     end
   end
 
-  return {}
+  return statuses
 end
 
 return M
