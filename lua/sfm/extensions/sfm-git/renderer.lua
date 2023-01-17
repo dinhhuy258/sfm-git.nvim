@@ -28,11 +28,14 @@ function M.git_status_renderer(entry)
     return a.ord < b.ord
   end)
 
-  if vim.tbl_count(icons) ~= 0 then
-    table.insert(icons, { text = " ", highlight = nil })
+  local renderer = {}
+
+  for _, icon in pairs(icons) do
+    table.insert(renderer, icon)
+    table.insert(renderer, { text = " ", highlight = nil })
   end
 
-  return icons
+  return renderer
 end
 
 function M.setup()

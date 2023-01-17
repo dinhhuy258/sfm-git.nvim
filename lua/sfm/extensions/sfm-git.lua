@@ -4,7 +4,7 @@ local config = require "sfm.extensions.sfm-git.config"
 local colors = require "sfm.extensions.sfm-git.colors"
 local status = require "sfm.extensions.sfm-git.status"
 local ctx = require "sfm.extensions.sfm-git.context"
-local git_renderer = require "sfm.extensions.sfm-git.git_renderer"
+local renderer = require "sfm.extensions.sfm-git.renderer"
 
 local event = require "sfm.event"
 local api = require "sfm.api"
@@ -21,7 +21,7 @@ end
 
 function M.setup(sfm_explorer, opts)
   config.setup(opts)
-  git_renderer.setup()
+  renderer.setup()
   colors.setup()
   status.setup(on_git_status_done)
 
@@ -53,7 +53,7 @@ function M.setup(sfm_explorer, opts)
   end)
 
   -- indent(10), indicator(20), icon(30), selection(40), git_status(45), name(50)
-  sfm_explorer:register_renderer("sfm-git", 45, git_renderer.git_status_renderer)
+  sfm_explorer:register_renderer("sfm-git", 45, renderer.git_status_renderer)
 end
 
 return M

@@ -3,6 +3,7 @@ local debounce = require "sfm.utils.debounce"
 local path = require "sfm.utils.path"
 local watcher = require "sfm.extensions.sfm-git.watcher"
 local utils = require "sfm.extensions.sfm-git.utils"
+local config = require "sfm.extensions.sfm-git.config"
 
 local path_separator = package.config:sub(1, 1)
 
@@ -156,7 +157,7 @@ function M.update_git_status_async(fpath)
           return
         end
 
-        debounce.debounce("sfm-git-watcher" .. git_root, 1000, function()
+        debounce.debounce("sfm-git-watcher" .. git_root, config.opts.debounce_interval_ms, function()
           M.update_git_status_async(w.git_root)
         end)
       end, {
@@ -180,7 +181,7 @@ function M.update_git_status_async(fpath)
       end) -- job_complete_callback
     end)
 
-    debounce.debounce("sfm-git-" .. git_root, 1000, function()
+    debounce.debounce("sfm-git-" .. git_root, config.opts.debounce_interval_ms, function()
       Job:new({
         command = "git",
         args = {

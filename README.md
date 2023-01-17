@@ -27,6 +27,7 @@ The `sfm-git` plugin provides the following configuration options:
 
 ```lua
 local default_config = {
+  debounce_interval_ms = 1000,
   icons = {
     unstaged = "",
     staged = "S",
@@ -43,15 +44,7 @@ You can override the default configuration in `load_extension` method
 
 ```lua
 sfm_explorer:load_extension("sfm-git", {
-  icons = {
-    unstaged = "",
-    staged = "S",
-    unmerged = "",
-    renamed = "",
-    untracked = "U",
-    deleted = "",
-    ignored = "◌"
-  }
+  debounce_interval_ms = 100
 })
 ```
 
