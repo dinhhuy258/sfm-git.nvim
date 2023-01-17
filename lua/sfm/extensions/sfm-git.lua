@@ -21,6 +21,7 @@ end
 
 function M.setup(sfm_explorer, opts)
   config.setup(opts)
+  git_renderer.setup()
   colors.setup()
   status.setup(on_git_status_done)
 
