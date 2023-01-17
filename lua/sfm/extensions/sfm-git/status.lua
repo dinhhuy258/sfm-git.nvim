@@ -145,11 +145,19 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
   end
 end
 
-function M.update_git_status_async(fpath)
+function M.reload_git_status_async()
+  for git_root, _ in pairs(M._watchers) do
+    M.update_git_status_async(git_root)
+  end
+end
+
+function M.update_git_status_async(fpath, force)
   get_git_root_async(fpath, function(git_root)
     if git_root == nil then
       return
     end
+
+    force = force == nil and true or force
 
     if M._watchers[git_root] == nil then
       M._watchers[git_root] = watcher.Watcher:new(path.join { git_root, ".git" }, WATCHED_FILES, function(w)
@@ -163,6 +171,8 @@ function M.update_git_status_async(fpath)
       end, {
         git_root = git_root,
       })
+    elseif not force then
+      return
     end
 
     local ctx = {

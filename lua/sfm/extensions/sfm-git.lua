@@ -1,13 +1,12 @@
 local path = require "sfm.utils.path"
+local event = require "sfm.event"
+local api = require "sfm.api"
 
 local config = require "sfm.extensions.sfm-git.config"
 local colors = require "sfm.extensions.sfm-git.colors"
 local status = require "sfm.extensions.sfm-git.status"
 local ctx = require "sfm.extensions.sfm-git.context"
 local renderer = require "sfm.extensions.sfm-git.renderer"
-
-local event = require "sfm.event"
-local api = require "sfm.api"
 
 local M = {}
 
@@ -42,14 +41,17 @@ function M.setup(sfm_explorer, opts)
     end,
   })
 
-  sfm_explorer:subscribe(event.ExplorerReloaded, function()
+  sfm_explorer:subscribe(event.ExplorerOpened, function()
     local root = api.entry.root()
     status.update_git_status_async(root.path)
   end)
 
+  sfm_explorer:subscribe(event.ExplorerReloaded, function()
+    status.reload_git_status_async()
+  end)
+
   sfm_explorer:subscribe(event.FolderOpened, function(payload)
-    local fpath = payload["path"]
-    status.update_git_status_async(fpath)
+    status.update_git_status_async(payload["path"], false)
   end)
 
   -- indent(10), indicator(20), icon(30), selection(40), git_status(45), name(50)
