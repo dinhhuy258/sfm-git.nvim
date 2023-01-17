@@ -1,3 +1,5 @@
+local path = require "sfm.utils.path"
+
 local config = require "sfm.extensions.sfm-git.config"
 local colors = require "sfm.extensions.sfm-git.colors"
 local status = require "sfm.extensions.sfm-git.status"
@@ -28,19 +30,25 @@ function M.setup(sfm_explorer, opts)
     end,
   })
 
+  vim.api.nvim_create_autocmd({ "BufWritePost" }, {
+    callback = function(tbl)
+      if not api.explorer.is_open then
+        return
+      end
+
+      local fpath = tbl["match"]
+      status.update_git_status_async(path.dirname(fpath))
+    end,
+  })
+
   sfm_explorer:subscribe(event.ExplorerReloaded, function()
     local root = api.entry.root()
-    status.get_status_async(root.path)
-  end)
-
-  sfm_explorer:subscribe(event.ExplorerOpened, function()
-    local root = api.entry.root()
-    status.get_status_async(root.path)
+    status.update_git_status_async(root.path)
   end)
 
   sfm_explorer:subscribe(event.FolderOpened, function(payload)
-    local path = payload["path"]
-    status.get_status_async(path)
+    local fpath = payload["path"]
+    status.update_git_status_async(fpath)
   end)
 
   -- indent(10), indicator(20), icon(30), selection(40), git_status(45), name(50)

@@ -144,7 +144,7 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
   end
 end
 
-function M.get_status_async(fpath)
+function M.update_git_status_async(fpath)
   get_git_root_async(fpath, function(git_root)
     if git_root == nil then
       return
@@ -157,7 +157,7 @@ function M.get_status_async(fpath)
         end
 
         debounce.debounce("sfm-git-watcher" .. git_root, 1000, function()
-          M.get_status_async(w.git_root)
+          M.update_git_status_async(w.git_root)
         end)
       end, {
         git_root = git_root,
