@@ -54,8 +54,8 @@ function M.setup(sfm_explorer, opts)
     status.update_git_status_async(payload["path"], false)
   end)
 
-  -- indent(10), indicator(20), icon(30), selection(40), git_status(45), name(50)
-  sfm_explorer:register_renderer("sfm-git", 45, renderer.git_status_renderer)
+  -- indent(10), indicator(20), icon(30), git_status(39), name(40)
+  sfm_explorer:register_renderer("sfm-git", 39, renderer.git_status_renderer)
 end
 
 return M
