@@ -3,9 +3,9 @@ local Job = require "plenary.job"
 local api = require "sfm.api"
 
 local watcher = require "sfm.extensions.sfm-git.watcher"
-local utils = require "sfm.extensions.sfm-git.utils"
 local config = require "sfm.extensions.sfm-git.config"
 
+local is_windows = vim.fn.has "win32" == 1 or vim.fn.has "win32unix" == 1
 local GIT_STATUS_IGNORE = "!!"
 local MAX_LINES = 100000
 local BATCH_SIZE = 1000
@@ -23,6 +23,13 @@ local M = {
   _git_roots_cache = {},
   _watchers = {},
 }
+
+local function reduce(list, memo, func)
+  for _, i in ipairs(list) do
+    memo = func(memo, i)
+  end
+  return memo
+end
 
 local function get_git_root_async(fpath, callback)
   if M._git_roots_cache[fpath] ~= nil then
@@ -46,7 +53,7 @@ local function get_git_root_async(fpath, callback)
 
       local git_root = self:result()[1]
 
-      if utils.is_windows then
+      if is_windows then
         git_root = git_root:gsub("/", "\\")
       end
 
@@ -74,7 +81,7 @@ local function parse_git_status_line(git_root, line)
   -- remove any " due to whitespace in the path
   relative_path = relative_path:gsub('^"', ""):gsub('$"', "")
 
-  if utils.is_windows then
+  if is_windows then
     relative_path = relative_path:gsub("/", "\\")
   end
 
@@ -117,9 +124,9 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
         -- parse indirect
         local parts = api.path.split(state.path)
         table.remove(parts) -- pop the last part so we don't override the file's status
-        utils.reduce(parts, "", function(acc, part)
+        reduce(parts, "", function(acc, part)
           local fpath = acc .. api.path.path_separator .. part
-          if utils.is_windows then
+          if is_windows then
             fpath = fpath:gsub("^" .. api.path.path_separator, "")
           end
 
@@ -170,6 +177,8 @@ function M.update_git_status_async(fpath, force)
       end, {
         git_root = git_root,
       })
+      -- start watcher
+      M._watchers[git_root]:start()
     elseif not force then
       return
     end

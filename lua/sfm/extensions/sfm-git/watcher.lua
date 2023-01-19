@@ -1,7 +1,5 @@
 -- this file are copied from nvim-tree
 
-local utils = require "sfm.extensions.sfm-git.utils"
-
 local M = {}
 
 local Event = {
@@ -9,9 +7,7 @@ local Event = {
 }
 Event.__index = Event
 
-local Watcher = {
-  _watchers = {},
-}
+local Watcher = {}
 Watcher.__index = Watcher
 
 local FS_EVENT_FLAGS = {
@@ -43,6 +39,7 @@ function Event:start()
   if not self._fs_event then
     self._fs_event = nil
     print(string.format("Could not initialize an fs_event watcher for path %s : %s", self._path, name))
+
     return false
   end
 
@@ -59,6 +56,7 @@ function Event:start()
   rc, _, name = self._fs_event:start(self._path, FS_EVENT_FLAGS, event_cb)
   if rc ~= 0 then
     print(string.format("Could not start the fs_event watcher for path %s : %s", self._path, name))
+
     return false
   end
 
@@ -70,8 +68,15 @@ function Event:add(listener)
 end
 
 function Event:remove(listener)
-  utils.array_remove(self._listeners, listener)
-  if #self._listeners == 0 then
+  for pos, l in ipairs(self._listeners) do
+    if l == listener then
+      table.remove(self._listeners, pos)
+
+      break
+    end
+  end
+
+  if vim.tbl_isempty(self._listeners) then
     self:destroy()
   end
 end
@@ -107,10 +112,6 @@ function Watcher:new(path, files, callback, data)
     return nil
   end
 
-  w:start()
-
-  table.insert(Watcher._watchers, w)
-
   return w
 end
 
@@ -126,47 +127,9 @@ end
 
 function Watcher:destroy()
   self._event:remove(self._listener)
-
-  utils.array_remove(Watcher._watchers, self)
-
   self.destroyed = true
 end
 
 M.Watcher = Watcher
-
-function M.purge_watchers()
-  for _, w in ipairs(utils.array_shallow_clone(Watcher._watchers)) do
-    w:destroy()
-  end
-
-  for _, e in pairs(Event._events) do
-    e:destroy()
-  end
-end
-
---- Windows NT will present directories that cannot be enumerated.
---- Detect these by attempting to start an event monitor.
---- @param path string
---- @return boolean
-function M.is_fs_event_capable(path)
-  if not utils.is_windows then
-    return true
-  end
-
-  local fs_event = vim.loop.new_fs_event()
-  if not fs_event then
-    return false
-  end
-
-  if fs_event:start(path, FS_EVENT_FLAGS, function() end) ~= 0 then
-    return false
-  end
-
-  if fs_event:stop() ~= 0 then
-    return false
-  end
-
-  return true
-end
 
 return M
