@@ -1,6 +1,7 @@
 local Job = require "plenary.job"
+
 local api = require "sfm.api"
-local debounce = require "sfm.utils.debounce"
+
 local watcher = require "sfm.extensions.sfm-git.watcher"
 local utils = require "sfm.extensions.sfm-git.utils"
 local config = require "sfm.extensions.sfm-git.config"
@@ -163,7 +164,7 @@ function M.update_git_status_async(fpath, force)
           return
         end
 
-        debounce.debounce("sfm-git-watcher" .. git_root, config.opts.debounce_interval_ms, function()
+        api.debounce("sfm-git-watcher" .. git_root, config.opts.debounce_interval_ms, function()
           M.update_git_status_async(w.git_root)
         end)
       end, {
@@ -189,7 +190,7 @@ function M.update_git_status_async(fpath, force)
       end) -- job_complete_callback
     end)
 
-    debounce.debounce("sfm-git-" .. git_root, config.opts.debounce_interval_ms, function()
+    api.debounce("sfm-git-" .. git_root, config.opts.debounce_interval_ms, function()
       Job:new({
         command = "git",
         args = {
