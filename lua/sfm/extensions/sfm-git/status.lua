@@ -1,11 +1,9 @@
 local Job = require "plenary.job"
+local api = require "sfm.api"
 local debounce = require "sfm.utils.debounce"
-local path = require "sfm.utils.path"
 local watcher = require "sfm.extensions.sfm-git.watcher"
 local utils = require "sfm.extensions.sfm-git.utils"
 local config = require "sfm.extensions.sfm-git.config"
-
-local path_separator = package.config:sub(1, 1)
 
 local GIT_STATUS_IGNORE = "!!"
 local MAX_LINES = 100000
@@ -79,7 +77,7 @@ local function parse_git_status_line(git_root, line)
     relative_path = relative_path:gsub("/", "\\")
   end
 
-  local absolute_path = path.join { git_root, relative_path }
+  local absolute_path = api.path.join { git_root, relative_path }
 
   return {
     path = absolute_path,
@@ -116,12 +114,12 @@ local function parse_git_statuses_batch(ctx, job_complete_callback)
 
       if state.status ~= GIT_STATUS_IGNORE then
         -- parse indirect
-        local parts = path.split(state.path)
+        local parts = api.path.split(state.path)
         table.remove(parts) -- pop the last part so we don't override the file's status
         utils.reduce(parts, "", function(acc, part)
-          local fpath = acc .. path_separator .. part
+          local fpath = acc .. api.path.path_separator .. part
           if utils.is_windows then
-            fpath = fpath:gsub("^" .. path_separator, "")
+            fpath = fpath:gsub("^" .. api.path.path_separator, "")
           end
 
           ctx.git_statuses.indirect[fpath] = ctx.git_statuses.indirect[fpath] or {}
@@ -160,7 +158,7 @@ function M.update_git_status_async(fpath, force)
     force = force == nil and true or force
 
     if M._watchers[git_root] == nil then
-      M._watchers[git_root] = watcher.Watcher:new(path.join { git_root, ".git" }, WATCHED_FILES, function(w)
+      M._watchers[git_root] = watcher.Watcher:new(api.path.join { git_root, ".git" }, WATCHED_FILES, function(w)
         if w.destroyed then
           return
         end

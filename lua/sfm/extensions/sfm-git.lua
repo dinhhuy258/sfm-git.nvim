@@ -1,4 +1,3 @@
-local path = require "sfm.utils.path"
 local event = require "sfm.event"
 local api = require "sfm.api"
 
@@ -37,7 +36,7 @@ function M.setup(sfm_explorer, opts)
       end
 
       local fpath = tbl["match"]
-      status.update_git_status_async(path.dirname(fpath))
+      status.update_git_status_async(api.path.dirname(fpath))
     end,
   })
 
