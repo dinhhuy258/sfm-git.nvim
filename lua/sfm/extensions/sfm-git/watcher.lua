@@ -1,5 +1,7 @@
 -- this file are copied from nvim-tree
 
+local api = require "sfm.api"
+
 local M = {}
 
 local Event = {
@@ -38,7 +40,7 @@ function Event:start()
   self._fs_event, _, name = vim.loop.new_fs_event()
   if not self._fs_event then
     self._fs_event = nil
-    print(string.format("Could not initialize an fs_event watcher for path %s : %s", self._path, name))
+    api.log.error(string.format("Could not initialize an fs_event watcher for path %s : %s", self._path, name))
 
     return false
   end
@@ -55,7 +57,7 @@ function Event:start()
 
   rc, _, name = self._fs_event:start(self._path, FS_EVENT_FLAGS, event_cb)
   if rc ~= 0 then
-    print(string.format("Could not start the fs_event watcher for path %s : %s", self._path, name))
+    api.log.error(string.format("Could not start the fs_event watcher for path %s : %s", self._path, name))
 
     return false
   end
@@ -84,12 +86,12 @@ end
 function Event:destroy(message)
   if self._fs_event then
     if message then
-      print(message)
+      api.log.error(message)
     end
 
     local rc, _, name = self._fs_event:stop()
     if rc ~= 0 then
-      print(string.format("Could not stop the fs_event watcher for path %s : %s", self._path, name))
+      api.log.error(string.format("Could not stop the fs_event watcher for path %s : %s", self._path, name))
     end
     self._fs_event = nil
   end

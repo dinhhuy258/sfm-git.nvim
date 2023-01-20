@@ -237,7 +237,7 @@ function M.update_git_status_async(fpath, force)
               ctx.lines = job:result()
             end,
             on_stderr = function() -- err, line
-              print "[sfm-git] Failed to retrieve git status"
+              api.log.error "[sfm-git] Failed to retrieve git status"
             end,
           }
 

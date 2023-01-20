@@ -1,3 +1,5 @@
+local api = require "sfm.api"
+
 local ctx = require "sfm.extensions.sfm-git.context"
 local config = require "sfm.extensions.sfm-git.config"
 
@@ -13,7 +15,7 @@ function M.git_status_renderer(entry)
   for status, _ in pairs(statuses) do
     local git_status_icons = M._git_status_icons[status]
     if not git_status_icons then
-      print("[sfm-git] Unrecognized git state " .. status)
+      api.log.warn("[sfm-git] Unrecognized git state " .. status)
     else
       for _, icon in pairs(git_status_icons) do
         if not icon_inserted[icon] then
