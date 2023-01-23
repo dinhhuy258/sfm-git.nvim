@@ -1,14 +1,25 @@
--- this file are copied from nvim-tree
+-- this file was copied from nvim-tree
 
 local api = require "sfm.api"
 
 local M = {}
 
-local Event = {
-  _events = {},
-}
+---@class Event
+---@field _path string
+---@field _fs_event userdata|nil
+---@field _listeners table[function]
+local Event = {}
 Event.__index = Event
 
+local _events = {}
+
+---@class Watcher
+---@field _event Event|nil
+---@field _listener function|nil
+---@field _path string
+---@field _files string
+---@field _callback function
+---@field _destroyed boolean
 local Watcher = {}
 Watcher.__index = Watcher
 
@@ -26,15 +37,16 @@ function Event:new(path)
     _listeners = {},
   }, Event)
 
-  if e:start() then
-    Event._events[path] = e
+  if e:_start() then
+    _events[path] = e
+
     return e
   else
     return nil
   end
 end
 
-function Event:start()
+function Event:_start()
   local rc, _, name
 
   self._fs_event, _, name = vim.loop.new_fs_event()
@@ -47,7 +59,8 @@ function Event:start()
 
   local event_cb = vim.schedule_wrap(function(err, filename)
     if err then
-      self:destroy(string.format("File system watcher failed (%s) for path %s, halting watcher.", err, self._path))
+      api.log.error(string.format("File system watcher failed (%s) for path %s, halting watcher.", err, self._path))
+      self:destroy()
     else
       for _, listener in ipairs(self._listeners) do
         listener(filename)
@@ -83,32 +96,28 @@ function Event:remove(listener)
   end
 end
 
-function Event:destroy(message)
+function Event:destroy()
   if self._fs_event then
-    if message then
-      api.log.error(message)
-    end
-
     local rc, _, name = self._fs_event:stop()
     if rc ~= 0 then
       api.log.error(string.format("Could not stop the fs_event watcher for path %s : %s", self._path, name))
     end
+
     self._fs_event = nil
   end
 
-  Event._events[self._path] = nil
-
-  self.destroyed = true
+  _events[self._path] = nil
 end
 
 function Watcher:new(path, files, callback, data)
   local w = setmetatable(data, Watcher)
 
-  w._event = Event._events[path] or Event:new(path)
+  w._event = _events[path] or Event:new(path)
   w._listener = nil
   w._path = path
   w._files = files
   w._callback = callback
+  w._destroyed = false
 
   if not w._event then
     return nil
@@ -129,7 +138,11 @@ end
 
 function Watcher:destroy()
   self._event:remove(self._listener)
-  self.destroyed = true
+  self._destroyed = true
+end
+
+function Watcher:is_destroyed()
+  return self._destroyed
 end
 
 M.Watcher = Watcher

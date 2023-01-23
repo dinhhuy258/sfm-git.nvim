@@ -167,7 +167,7 @@ function M.update_git_status_async(fpath, force)
 
     if M._watchers[git_root] == nil then
       M._watchers[git_root] = watcher.Watcher:new(api.path.join { git_root, ".git" }, WATCHED_FILES, function(w)
-        if w.destroyed then
+        if w:is_destroyed() then
           return
         end
 
@@ -247,6 +247,14 @@ function M.update_git_status_async(fpath, force)
       }):start()
     end)
   end)
+end
+
+function M.stop_watchers()
+  for _, w in pairs(M._watchers) do
+    w:destroy()
+  end
+
+  M._watchers = {}
 end
 
 function M.setup(callback)

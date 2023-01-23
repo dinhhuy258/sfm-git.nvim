@@ -49,6 +49,10 @@ function M.setup(sfm_explorer, opts)
     status.reload_git_status_async()
   end)
 
+  sfm_explorer:subscribe(event.ExplorerRootChanged, function()
+    status.stop_watchers()
+  end)
+
   sfm_explorer:subscribe(event.FolderOpened, function(payload)
     status.update_git_status_async(payload["path"], false)
   end)
