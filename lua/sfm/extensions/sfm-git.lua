@@ -7,7 +7,9 @@ local status = require "sfm.extensions.sfm-git.status"
 local ctx = require "sfm.extensions.sfm-git.context"
 local renderer = require "sfm.extensions.sfm-git.renderer"
 
-local M = {}
+local M = {
+  render_git_icons = true
+}
 
 local function on_git_status_done(git_root, git_statuses)
   ctx.set_statuses(git_root, git_statuses)
@@ -22,6 +24,21 @@ function M.setup(sfm_explorer, opts)
   renderer.setup()
   colors.setup()
   status.setup(on_git_status_done)
+
+  vim.api.nvim_create_user_command("SFMGitToggle", function()
+    if M.render_git_icons then
+      M.render_git_icons = false
+      sfm_explorer:remove_renderer("sfm-git")
+      api.explorer.refresh()
+    else
+      M.render_git_icons = true
+      sfm_explorer:register_renderer("sfm-git", 39, renderer.git_status_renderer)
+      api.explorer.refresh()
+    end
+  end, {
+    bang = true,
+    nargs = "*",
+  })
 
   vim.api.nvim_create_autocmd("ColorScheme", {
     callback = function()

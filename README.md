@@ -48,6 +48,12 @@ sfm_explorer:load_extension("sfm-git", {
 })
 ```
 
+## Commands
+
+- `SFMGitToggle`: Toggles Git icons on and off for the explorer.
+
+## Installation
+
 ## Highlight Values
 
 The `sfm-git` plugin uses the following highlight groups to colorize the git icons in the explorer tree:
