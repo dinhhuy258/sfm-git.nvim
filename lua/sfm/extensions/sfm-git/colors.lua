@@ -1,64 +1,44 @@
 local M = {}
 
-local function get_color_from_hl(hl_name, fallback)
-  local id = vim.api.nvim_get_hl_id_by_name(hl_name)
-  if not id then
-    return fallback
+local function create_highlight_group(hl_group_name, link_to_if_exists, fg, bg, gui)
+  local success, hl_group = pcall(vim.api.nvim_get_hl_by_name, hl_group_name, true)
+  if not success or not hl_group.foreground or not hl_group.background then
+    for _, link_to in ipairs(link_to_if_exists) do
+      success, hl_group = pcall(vim.api.nvim_get_hl_by_name, link_to, true)
+      if success then
+        local new_group_has_settings = bg or fg or gui
+        local link_to_has_settings = hl_group.foreground or hl_group.background
+        if link_to_has_settings or not new_group_has_settings then
+          vim.cmd("highlight default link " .. hl_group_name .. " " .. link_to)
+
+          return
+        end
+      end
+    end
+
+    local cmd = "highlight default " .. hl_group_name
+    if bg then
+      cmd = cmd .. " guibg=#" .. bg
+    end
+    if fg then
+      cmd = cmd .. " guifg=#" .. fg
+    else
+      cmd = cmd .. " guifg=NONE"
+    end
+    if gui then
+      cmd = cmd .. " gui=" .. gui
+    end
+    vim.cmd(cmd)
   end
-
-  local foreground = vim.fn.synIDattr(vim.fn.synIDtrans(id), "fg")
-  if not foreground or foreground == "" then
-    return fallback
-  end
-
-  return foreground
-end
-
-local function get_colors()
-  return {
-    red = vim.g.terminal_color_1 or get_color_from_hl("Keyword", "Red"),
-    green = vim.g.terminal_color_2 or get_color_from_hl("Character", "Green"),
-    yellow = vim.g.terminal_color_3 or get_color_from_hl("PreProc", "Yellow"),
-    blue = vim.g.terminal_color_4 or get_color_from_hl("Include", "Blue"),
-    purple = vim.g.terminal_color_5 or get_color_from_hl("Define", "Purple"),
-    cyan = vim.g.terminal_color_6 or get_color_from_hl("Conditional", "Cyan"),
-    dark_red = vim.g.terminal_color_9 or get_color_from_hl("Keyword", "DarkRed"),
-    orange = vim.g.terminal_color_11 or get_color_from_hl("Number", "Orange"),
-  }
-end
-
-local function get_hl_groups()
-  local colors = get_colors()
-
-  return {
-    SFMGitStaged = { fg = colors.green },
-    SFMGitUnstaged = { fg = colors.dark_red },
-    SFMGitRenamed = { fg = colors.purple },
-    SFMGitDeleted = { fg = colors.dark_red },
-    SFMGitMerge = { fg = colors.orange },
-    SFMGitNew = { fg = colors.yellow },
-  }
-end
-
-local function get_links()
-  return {
-    SFMGitIgnored = "Comment",
-  }
 end
 
 function M.setup()
-  local higlight_groups = get_hl_groups()
-  for k, d in pairs(higlight_groups) do
-    local gui = d.gui and " gui=" .. d.gui or ""
-    local fg = d.fg and " guifg=" .. d.fg or ""
-    local bg = d.bg and " guibg=" .. d.bg or ""
-    vim.api.nvim_command("hi def " .. k .. gui .. fg .. bg)
-  end
-
-  local links = get_links()
-  for k, d in pairs(links) do
-    vim.api.nvim_command("hi def link " .. k .. " " .. d)
-  end
+  create_highlight_group("SFMGitStaged", { "GitGutterAdd", "GitSignsAdd" }, "5faf5f", nil, nil)
+  create_highlight_group("SFMGitUnstaged", {}, "ff8700", nil, "italic,bold")
+  create_highlight_group("SFMGitRenamed", { "GitGutterChange", "GitSignsChange" }, "d7af5f", nil, nil)
+  create_highlight_group("SFMGitDeleted", { "GitGutterDelete", "GitSignsDelete" }, "ff5900", nil, nil)
+  create_highlight_group("SFMGitMerge", { "GitGutterDelete", "GitSignsDelete" }, "ff5900", nil, nil)
+  create_highlight_group("SFMGitNew", { "GitGutterAdd", "GitSignsAdd" }, "5faf5f", nil, nil)
 end
 
 return M
