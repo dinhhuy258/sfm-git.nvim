@@ -5,11 +5,11 @@ local M = {
 local default_config = {
   debounce_interval_ms = 1000,
   icons = {
-    unstaged = "",
-    staged = "S",
+    unstaged = "",
+    staged = "",
     unmerged = "",
     renamed = "",
-    untracked = "U",
+    untracked = "",
     deleted = "",
     ignored = "◌",
   },

@@ -33,12 +33,12 @@ local function create_highlight_group(hl_group_name, link_to_if_exists, fg, bg, 
 end
 
 function M.setup()
-  create_highlight_group("SFMGitStaged", { "GitGutterAdd", "GitSignsAdd" }, "5faf5f", nil, nil)
-  create_highlight_group("SFMGitUnstaged", {}, "ff8700", nil, "italic,bold")
+  create_highlight_group("SFMGitStaged", { "GitGutterAdd", "GitSignsAdd" }, "276d35", nil, nil)
+  create_highlight_group("SFMGitUnstaged", {}, "d29922", nil, nil)
   create_highlight_group("SFMGitRenamed", { "GitGutterChange", "GitSignsChange" }, "d7af5f", nil, nil)
   create_highlight_group("SFMGitDeleted", { "GitGutterDelete", "GitSignsDelete" }, "ff5900", nil, nil)
   create_highlight_group("SFMGitMerge", { "GitGutterDelete", "GitSignsDelete" }, "ff5900", nil, nil)
-  create_highlight_group("SFMGitNew", { "GitGutterAdd", "GitSignsAdd" }, "5faf5f", nil, nil)
+  create_highlight_group("SFMGitNew", { "GitGutterAdd", "GitSignsAdd" }, "276d35", nil, nil)
 end
 
 return M
